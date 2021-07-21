@@ -25,10 +25,20 @@ function findEleAndDosth() {
     return haveNotLikedMembers.result.items
   }
 
-  // async function getMentionedPeople(commentUrl) {
-  //   const prefixUrl = 'https://cndevqpofif.cybozu.cn/k/api/ntf/listMentionRecipients.json?_lc=zh&_ref='
-  //   const commentId = commentUrl.substring(commentUrl.lastIndexOf('/') + 1)
-  // }
+  function findMentionedMembers(elementCommentBlock) {
+    const arrayComputedMembers = []
+    const arrayMentionedItems = elementCommentBlock.querySelectorAll('.ocean-ui-plugin-mention-user')
+    console.log(arrayMentionedItems)
+    console.log(3334)
+    for (let i = 0; i < arrayMentionedItems.length; i += 1) {
+      console.log(arrayMentionedItems[i])
+      console.log(arrayMentionedItems[i].hasAttribute('data-mention-id'))
+      console.log(arrayMentionedItems[i].hasAttribute('data-org-mention-id'))
+      console.log(arrayMentionedItems[i].hasAttribute('data-group-mention-id'))
+      arrayComputedMembers.push(arrayMentionedItems[i])
+    }
+    return arrayComputedMembers
+  }
 
   // 判断是评论(Post)还是评论的回复(comment)
   function checkPostOrComment(commentUrl) {
@@ -45,12 +55,12 @@ function findEleAndDosth() {
 
   async function doYourWork() {
     // 找到回复的块
-    const nodeAllComment = document.querySelectorAll('.ocean-ui-comments-commentbase-entity')
+    const elesAllComment = document.querySelectorAll('.ocean-ui-comments-commentbase-entity')
     // 对这些块进行循环
-    for (let i = 0; i < nodeAllComment.length; i += 1) {
+    for (let i = 0; i < elesAllComment.length; i += 1) {
       // 找到本回复的链接，类似
       // https://xxx.cybozu.cn/k/#/space/6/thread/9/10/20
-      const stringNodePostLink = nodeAllComment[i]
+      const stringNodePostLink = elesAllComment[i]
         .querySelector('.ocean-ui-comments-commentbase-time > a')
         .getAttribute('href')
       const checkCommentTypeResult = checkPostOrComment(stringNodePostLink)
@@ -58,21 +68,21 @@ function findEleAndDosth() {
       const btnCheckUnlike = document.createElement('BUTTON')
       const checkButton = document.createTextNode('check like')
       btnCheckUnlike.appendChild(checkButton)
-      nodeAllComment[i].querySelector('.ocean-ui-comments-commentbase-like').parentElement.appendChild(btnCheckUnlike)
+      elesAllComment[i].querySelector('.ocean-ui-comments-commentbase-like').parentElement.appendChild(btnCheckUnlike)
       // 按钮的事件
       btnCheckUnlike.onclick = async () => {
-        let haveNotLikedMembers
+        let arrayHaveNotLikedMembers
         if (checkCommentTypeResult.type === 'post') {
-          haveNotLikedMembers = await getPostLikedPeople(stringNodePostLink, checkCommentTypeResult.id)
+          arrayHaveNotLikedMembers = await getPostLikedPeople(stringNodePostLink, checkCommentTypeResult.id)
         } else if (checkCommentTypeResult.type === 'comment') {
-          haveNotLikedMembers = await getCommentLikedPeople(stringNodePostLink, checkCommentTypeResult.id)
+          arrayHaveNotLikedMembers = await getCommentLikedPeople(stringNodePostLink, checkCommentTypeResult.id)
         }
         // 测试输出点赞的用户们
-        console.log(haveNotLikedMembers)
+        console.log(arrayHaveNotLikedMembers)
       }
       // 找到@的元素们
-      const eleMention = nodeAllComment[i].querySelectorAll('.ocean-ui-plugin-mention-user')
-      console.log(eleMention)
+      const arrayMentionedMembers = findMentionedMembers(elesAllComment[i])
+      console.log(arrayMentionedMembers)
       // todo 区分是人还是组织还是组，分别调api
     }
   }
