@@ -1,97 +1,155 @@
 /* eslint-disable no-undef */
 /* eslint-disable no-console */
-function findEleAndDosth() {
-  async function getPostLikedPeople(commentUrl, inId) {
-    const prefixUrl = '/k/api/post/likeList.json?_lc=zh&_ref='
-    const haveNotLikedMembers = await kintone.api(
-      kintone.api.url(prefixUrl + encodeURIComponent(commentUrl), true),
-      'POST',
-      {
-        id: inId,
-      },
-    )
+
+import _ from 'lodash'
+
+function iWillWinTheHackathon() {
+  async function getPostLikedPeople(inId) {
+    const prefixUrl = '/k/api/post/likeList.json'
+    const haveNotLikedMembers = await kintone.api(kintone.api.url(prefixUrl, true), 'POST', {
+      id: inId,
+    })
+    console.log(haveNotLikedMembers)
+    console.log(haveNotLikedMembers)
     return haveNotLikedMembers.result.items
   }
 
-  async function getCommentLikedPeople(commentUrl, inId) {
-    const prefixUrl = '/k/api/comment/likeList.json?_lc=zh&_ref='
-    const haveNotLikedMembers = await kintone.api(
-      kintone.api.url(prefixUrl + encodeURIComponent(commentUrl), true),
-      'POST',
-      {
-        id: inId,
-      },
-    )
+  async function getCommentLikedPeople(inId) {
+    const prefixUrl = '/k/api/comment/likeList.json'
+    const haveNotLikedMembers = await kintone.api(kintone.api.url(prefixUrl, true), 'POST', {
+      id: inId,
+    })
     return haveNotLikedMembers.result.items
   }
 
-  function findMentionedMembers(elementCommentBlock) {
-    const arrayComputedMembers = []
-    const arrayMentionedItems = elementCommentBlock.querySelectorAll('.ocean-ui-plugin-mention-user')
-    console.log(arrayMentionedItems)
-    console.log(3334)
-    for (let i = 0; i < arrayMentionedItems.length; i += 1) {
-      console.log(arrayMentionedItems[i])
-      console.log(arrayMentionedItems[i].hasAttribute('data-mention-id'))
-      console.log(arrayMentionedItems[i].hasAttribute('data-org-mention-id'))
-      console.log(arrayMentionedItems[i].hasAttribute('data-group-mention-id'))
-      arrayComputedMembers.push(arrayMentionedItems[i])
+  async function getUserByCode(userCode) {
+    const stringApi = '/k/api/people/user/getByCode.json'
+    try {
+      const objUser = await kintone.api(kintone.api.url(stringApi, true), 'POST', {
+        code: userCode,
+      })
+      return objUser.result.item
+    } catch (e) {
+      console.log(e)
+      throw new Error('获取用户的时候出错')
     }
-    return arrayComputedMembers
+  }
+  async function getUsersByOrgOrGroup(spaceId, collectionType, id) {
+    const stringApi = '/k/api/ntf/listMentionRecipients.json'
+    const objPostBody = collectionType === 'org' ? { orgMention: id } : { groupMention: id }
+    objPostBody.spaceId = spaceId
+    try {
+      const objResponse = await kintone.api(kintone.api.url(stringApi, true), 'POST', objPostBody)
+      return objResponse.result.users
+    } catch (e) {
+      console.log(e)
+      throw new Error('获取组织或组的时候出错g')
+    }
+  }
+
+  async function findMentionedMembers(elementCommentBlock, spaceId) {
+    const arrayPromiseGetUserTask = []
+    const arrayPromeseGetUsersInOrgTask = []
+    const arrayPromeseGetUsersInGroupTask = []
+    const arrayMentionedItems = elementCommentBlock.querySelectorAll('.ocean-ui-plugin-mention-user')
+    arrayMentionedItems.forEach((element) => {
+      if (element.hasAttribute('data-mention-id')) {
+        const stringUserHref = element.getAttribute('href')
+        const stringUserCode = stringUserHref.split('/k/#/people/user/').pop()
+        const objUser = getUserByCode(stringUserCode)
+        arrayPromiseGetUserTask.push(objUser)
+      }
+      if (element.hasAttribute('data-org-mention-id')) {
+        console.log('find org item')
+        arrayPromeseGetUsersInOrgTask.push(
+          getUsersByOrgOrGroup(spaceId, 'org', element.getAttribute('data-org-mention-id')),
+        )
+      }
+      if (element.hasAttribute('data-group-mention-id')) {
+        console.log('find group item')
+        arrayPromeseGetUsersInGroupTask.push(
+          getUsersByOrgOrGroup(spaceId, 'group', element.getAttribute('data-group-mention-id')),
+        )
+      }
+    })
+
+    const arrayComputedMentionedUsers = await Promise.all(arrayPromiseGetUserTask)
+    const arrayOrgUsers = await Promise.all(arrayPromeseGetUsersInOrgTask)
+    console.log(arrayOrgUsers)
+    console.log(...arrayOrgUsers)
+    const arrayGroupUsers = await Promise.all(arrayPromeseGetUsersInGroupTask)
+    const arrayTogether = [].concat(...arrayOrgUsers).concat(...arrayGroupUsers)
+    console.log(arrayTogether)
+    const arrayUniq = _.uniqWith(arrayTogether)
+    console.log(arrayUniq)
+    console.log('111211')
+
+    return arrayComputedMentionedUsers
   }
 
   // 判断是评论(Post)还是评论的回复(comment)
-  function checkPostOrComment(commentUrl) {
-    const lastId = commentUrl.substring(commentUrl.lastIndexOf('/') + 1)
-    const slashAmountAfterThread = commentUrl.substring(commentUrl.lastIndexOf('thread')).split('/').length - 1
-    if (slashAmountAfterThread === 2) {
-      return { type: 'post', id: lastId }
+  function getCommentInfo(commentUrl) {
+    const regex = /\/k\/#\/space\/(\d+)\/thread\/(\d+)\/(\d+)\/*(\d*)/
+    const arrayFound = commentUrl.match(regex)
+    const objInfo = {
+      spaceId: arrayFound[1],
+      threadId: arrayFound[2],
+      postId: arrayFound[3],
+      commentId: arrayFound[4],
     }
-    if (slashAmountAfterThread === 3) {
-      return { type: 'comment', id: lastId }
-    }
-    throw new Error('预期外的URL')
+    return objInfo
   }
 
-  async function doYourWork() {
+  async function mainTask() {
     // 找到回复的块
-    const elesAllComment = document.querySelectorAll('.ocean-ui-comments-commentbase-entity')
+    const arrayAllComments = document.querySelectorAll('.ocean-ui-comments-commentbase-entity')
     // 对这些块进行循环
-    for (let i = 0; i < elesAllComment.length; i += 1) {
-      // 找到本回复的链接，类似
-      // https://xxx.cybozu.cn/k/#/space/6/thread/9/10/20
-      const stringNodePostLink = elesAllComment[i]
+    // const asyncTasks = []
+    for (let i = 0; i < arrayAllComments.length; i += 1) {
+      const stringNodePostLink = arrayAllComments[i]
         .querySelector('.ocean-ui-comments-commentbase-time > a')
         .getAttribute('href')
-      const checkCommentTypeResult = checkPostOrComment(stringNodePostLink)
+      const objCommentInfo = getCommentInfo(stringNodePostLink)
       // 创建一个检查按钮并加入【赞】的后面
       const btnCheckUnlike = document.createElement('BUTTON')
       const checkButton = document.createTextNode('check like')
       btnCheckUnlike.appendChild(checkButton)
-      elesAllComment[i].querySelector('.ocean-ui-comments-commentbase-like').parentElement.appendChild(btnCheckUnlike)
+      arrayAllComments[i].querySelector('.ocean-ui-comments-commentbase-like').parentElement.appendChild(btnCheckUnlike)
       // 按钮的事件
       btnCheckUnlike.onclick = async () => {
         let arrayHaveNotLikedMembers
-        if (checkCommentTypeResult.type === 'post') {
-          arrayHaveNotLikedMembers = await getPostLikedPeople(stringNodePostLink, checkCommentTypeResult.id)
-        } else if (checkCommentTypeResult.type === 'comment') {
-          arrayHaveNotLikedMembers = await getCommentLikedPeople(stringNodePostLink, checkCommentTypeResult.id)
+        if (objCommentInfo.commentId) {
+          arrayHaveNotLikedMembers = await getCommentLikedPeople(objCommentInfo.commentId)
+        } else {
+          arrayHaveNotLikedMembers = await getPostLikedPeople(objCommentInfo.postId)
         }
         // 测试输出点赞的用户们
+        console.log('谁点赞了：')
         console.log(arrayHaveNotLikedMembers)
+        // find @
+        const arrayMentionedUsers = await findMentionedMembers(arrayAllComments[i], objCommentInfo.spaceId)
+        console.log('@谁了：')
+        console.log(arrayMentionedUsers)
       }
       // 找到@的元素们
-      const arrayMentionedMembers = findMentionedMembers(elesAllComment[i])
-      console.log(arrayMentionedMembers)
+      // asyncTasks.push(findMentionedMembers(elesAllComment[i]))ddd
+      // console.log(arrayMentionedMembers)
       // todo 区分是人还是组织还是组，分别调api
     }
+    // try {
+    // await Promise.all(asyncTasks)
+    // } catch (error) {
+    //   console.log(error)
+    // }
+    const tr = await getUsersByOrgOrGroup(6, 'org', 2)
+    console.log(tr)
   }
 
   // 给kintone加载内容一些时间
-  setTimeout(doYourWork, 3000)
+  setTimeout(mainTask, 3000)
 }
 
 // 切换thread的时候也会调用
-onhashchange = findEleAndDosth
+onhashchange = iWillWinTheHackathon
 // 初次执行
-findEleAndDosth()
+iWillWinTheHackathon()
