@@ -25,19 +25,50 @@ function findEleAndDosth() {
     return haveNotLikedMembers.result.items
   }
 
-  function findMentionedMembers(elementCommentBlock) {
-    const arrayComputedMembers = []
-    const arrayMentionedItems = elementCommentBlock.querySelectorAll('.ocean-ui-plugin-mention-user')
-    console.log(arrayMentionedItems)
-    console.log(3334)
-    for (let i = 0; i < arrayMentionedItems.length; i += 1) {
-      console.log(arrayMentionedItems[i])
-      console.log(arrayMentionedItems[i].hasAttribute('data-mention-id'))
-      console.log(arrayMentionedItems[i].hasAttribute('data-org-mention-id'))
-      console.log(arrayMentionedItems[i].hasAttribute('data-group-mention-id'))
-      arrayComputedMembers.push(arrayMentionedItems[i])
+  async function getUserByCode(userCode) {
+    console.log('before get userss')
+    const prefixUrl =
+      '/k/api/people/user/getByCode.json?_lc=zh&_ref=https%3A%2F%2Fcndevqpofif.cybozu.cn%2Fk%2F%23%2Fpeople%2Fuser%2F'
+    try {
+      const objUser = await kintone.api(kintone.api.url(prefixUrl + userCode, true), 'POST', {
+        code: userCode,
+      })
+      console.log('after get userss')
+      return objUser.result.item
+    } catch (e) {
+      return e
     }
-    return arrayComputedMembers
+  }
+
+  async function findMentionedMembers(elementCommentBlock) {
+    const arrayComputedMentionedUsers = []
+    // const arrayMentionedUserId = []
+    const arrayMentionedItems = elementCommentBlock.querySelectorAll('.ocean-ui-plugin-mention-user')
+    // console.log(arrayMentionedItems)
+    for (let i = 0; i < arrayMentionedItems.length; i += 1) {
+      // console.log(arrayMentionedItems[i])
+      // console.log(arrayMentionedItems[i].hasAttribute('data-mention-id'))
+      // console.log(arrayMentionedItems[i].hasAttribute('data-org-mention-id'))
+      // console.log(arrayMentionedItems[i].hasAttribute('data-group-mention-id'))
+      if (arrayMentionedItems[i].hasAttribute('data-mention-id')) {
+        const stringUserHref = arrayMentionedItems[i].getAttribute('href')
+        const stringUserCode = stringUserHref.split('/k/#/people/user/').pop()
+        // console.log(stringUserCode)
+        const objUser = getUserByCode(stringUserCode)
+        arrayComputedMentionedUsers.push(objUser)
+        // arrayMentionedUserId.push('fake user code  4 ')
+        // console.log(arrayMentionedUserId)
+      }
+      if (arrayMentionedItems[i].hasAttribute('data-org-mention-id')) {
+        // console.log('find org item  ')
+      }
+      if (arrayMentionedItems[i].hasAttribute('data-group-mention-id')) {
+        // console.log('find group item')
+      }
+    }
+    const haha = await Promise.all(arrayComputedMentionedUsers)
+    console.log(haha)
+    return haha
   }
 
   // 判断是评论(Post)还是评论的回复(comment)
@@ -57,6 +88,7 @@ function findEleAndDosth() {
     // 找到回复的块
     const elesAllComment = document.querySelectorAll('.ocean-ui-comments-commentbase-entity')
     // 对这些块进行循环
+    const asyncTasks = []
     for (let i = 0; i < elesAllComment.length; i += 1) {
       // 找到本回复的链接，类似
       // https://xxx.cybozu.cn/k/#/space/6/thread/9/10/20
@@ -81,10 +113,15 @@ function findEleAndDosth() {
         console.log(arrayHaveNotLikedMembers)
       }
       // 找到@的元素们
-      const arrayMentionedMembers = findMentionedMembers(elesAllComment[i])
-      console.log(arrayMentionedMembers)
+      asyncTasks.push(findMentionedMembers(elesAllComment[i]))
+      // console.log(arrayMentionedMembers)
       // todo 区分是人还是组织还是组，分别调api
     }
+    // try {
+    await Promise.all(asyncTasks)
+    // } catch (error) {
+    //   console.log(error)
+    // }
   }
 
   // 给kintone加载内容一些时间
