@@ -60,7 +60,6 @@
     "webpack-merge": "^5.8.0"
   },
   "dependencies": {
-    "@babel/runtime-corejs3": "^7.14.0",
-    "lodash": "^4.17.21"
+    "@babel/runtime-corejs3": "^7.14.0"
   }
 }

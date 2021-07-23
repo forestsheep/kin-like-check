@@ -1,16 +1,41 @@
 /* eslint-disable no-undef */
 /* eslint-disable no-console */
 
-import _ from 'lodash'
-
 function iWillWinTheHackathon() {
+  function findHaventLikeUsers(arrayMentionedUsers, arrayHaveLikedUsers) {
+    for (let i = 0; i < arrayHaveLikedUsers.length; i += 1) {
+      for (let j = 0; j < arrayMentionedUsers.length; j += 1) {
+        if (arrayHaveLikedUsers[i].id === arrayMentionedUsers[j].id) {
+          arrayMentionedUsers.splice(j, 1)
+        }
+      }
+    }
+    return arrayMentionedUsers
+  }
+  function unique(arr) {
+    const ret = []
+    const len = arr.length
+    let isRepeat
+    for (let i = 0; i < len; i += 1) {
+      isRepeat = false
+      for (let j = i + 1; j < len; j += 1) {
+        if (arr[i].id === arr[j].id) {
+          isRepeat = true
+          break
+        }
+      }
+      if (!isRepeat) {
+        ret.push(arr[i])
+      }
+    }
+    return ret
+  }
+
   async function getPostLikedPeople(inId) {
     const prefixUrl = '/k/api/post/likeList.json'
     const haveNotLikedMembers = await kintone.api(kintone.api.url(prefixUrl, true), 'POST', {
       id: inId,
     })
-    console.log(haveNotLikedMembers)
-    console.log(haveNotLikedMembers)
     return haveNotLikedMembers.result.items
   }
 
@@ -60,30 +85,26 @@ function iWillWinTheHackathon() {
         arrayPromiseGetUserTask.push(objUser)
       }
       if (element.hasAttribute('data-org-mention-id')) {
-        console.log('find org item')
         arrayPromeseGetUsersInOrgTask.push(
           getUsersByOrgOrGroup(spaceId, 'org', element.getAttribute('data-org-mention-id')),
         )
       }
       if (element.hasAttribute('data-group-mention-id')) {
-        console.log('find group item')
         arrayPromeseGetUsersInGroupTask.push(
           getUsersByOrgOrGroup(spaceId, 'group', element.getAttribute('data-group-mention-id')),
         )
       }
     })
 
-    const arrayComputedMentionedUsers = await Promise.all(arrayPromiseGetUserTask)
+    const arraySingleUsers = await Promise.all(arrayPromiseGetUserTask)
+    console.log(arraySingleUsers)
     const arrayOrgUsers = await Promise.all(arrayPromeseGetUsersInOrgTask)
     console.log(arrayOrgUsers)
-    console.log(...arrayOrgUsers)
     const arrayGroupUsers = await Promise.all(arrayPromeseGetUsersInGroupTask)
-    const arrayTogether = [].concat(...arrayOrgUsers).concat(...arrayGroupUsers)
+    console.log(arrayGroupUsers)
+    const arrayTogether = arraySingleUsers.concat(...arrayOrgUsers).concat(...arrayGroupUsers)
     console.log(arrayTogether)
-    const arrayUniq = _.uniqWith(arrayTogether)
-    console.log(arrayUniq)
-    console.log('111211')
-
+    const arrayComputedMentionedUsers = unique(arrayTogether)
     return arrayComputedMentionedUsers
   }
 
@@ -110,26 +131,31 @@ function iWillWinTheHackathon() {
         .querySelector('.ocean-ui-comments-commentbase-time > a')
         .getAttribute('href')
       const objCommentInfo = getCommentInfo(stringNodePostLink)
-      // 创建一个检查按钮并加入【赞】的后面
-      const btnCheckUnlike = document.createElement('BUTTON')
-      const checkButton = document.createTextNode('check like')
+      // 创建一个检查按钮并加入【赞】的后面 kintone fu
+      const btnCheckUnlike = document.createElement('a')
+      btnCheckUnlike.classList.add('ocean-ui-comments-commentbase-like')
+      btnCheckUnlike.style.cssText = 'min-width: 1px; user-select: none;margin-left:8px'
+      const checkButton = document.createTextNode('谁没赞')
       btnCheckUnlike.appendChild(checkButton)
       arrayAllComments[i].querySelector('.ocean-ui-comments-commentbase-like').parentElement.appendChild(btnCheckUnlike)
       // 按钮的事件
       btnCheckUnlike.onclick = async () => {
-        let arrayHaveNotLikedMembers
+        let arrayHaveLikedUsers
         if (objCommentInfo.commentId) {
-          arrayHaveNotLikedMembers = await getCommentLikedPeople(objCommentInfo.commentId)
+          arrayHaveLikedUsers = await getCommentLikedPeople(objCommentInfo.commentId)
         } else {
-          arrayHaveNotLikedMembers = await getPostLikedPeople(objCommentInfo.postId)
+          arrayHaveLikedUsers = await getPostLikedPeople(objCommentInfo.postId)
         }
         // 测试输出点赞的用户们
         console.log('谁点赞了：')
-        console.log(arrayHaveNotLikedMembers)
+        console.log(arrayHaveLikedUsers)
         // find @
         const arrayMentionedUsers = await findMentionedMembers(arrayAllComments[i], objCommentInfo.spaceId)
         console.log('@谁了：')
         console.log(arrayMentionedUsers)
+        const arrayFinalHaventLikedUsers = findHaventLikeUsers(arrayMentionedUsers, arrayHaveLikedUsers)
+        console.log('谁没点赞呀：')
+        console.log(arrayFinalHaventLikedUsers)
       }
       // 找到@的元素们
       // asyncTasks.push(findMentionedMembers(elesAllComment[i]))ddd
@@ -141,8 +167,6 @@ function iWillWinTheHackathon() {
     // } catch (error) {
     //   console.log(error)
     // }
-    const tr = await getUsersByOrgOrGroup(6, 'org', 2)
-    console.log(tr)
   }
 
   // 给kintone加载内容一些时间
